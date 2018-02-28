@@ -626,6 +626,7 @@ public class SlideMenu extends ViewGroup {
     }
 
     private boolean isTapInContent(float x, float y) {
+        if (mContent == null || mPrimaryMenu == null) ensureRoleView();
         final View content = mContent;
         if (null != content) {
             content.getHitRect(mContentHitRect);
@@ -664,9 +665,11 @@ public class SlideMenu extends ViewGroup {
         final float x = ev.getX();
         final float y = ev.getY();
         final int currentState = mCurrentState;
+
         if (STATE_DRAG == currentState || STATE_SCROLL == currentState) {
             return true;
         }
+
         switch (ev.getAction()) {
             case MotionEvent.ACTION_DOWN:
                 mPressedX = mLastMotionX = x;
@@ -824,6 +827,7 @@ public class SlideMenu extends ViewGroup {
     }
 
     protected void drag(float lastX, float x) {
+        Log.d(TAG, "drag lastX: " + lastX + " x:" + x);
         mCurrentContentOffset += (int) (x - lastX);
         setCurrentOffset(mCurrentContentOffset);
     }
@@ -996,6 +1000,24 @@ public class SlideMenu extends ViewGroup {
                 && (getRootView() == parent && MODE_SLIDE_WINDOW == mSlideMode);
     }
 
+    private void ensureRoleView() {
+        for (int i = 0; i < getChildCount(); i++) {
+            View child = getChildAt(i);
+            LayoutParams layoutParams = (LayoutParams) child.getLayoutParams();
+            switch (layoutParams.role) {
+                case LayoutParams.ROLE_CONTENT:
+                    mContent = child;
+                    break;
+                case LayoutParams.ROLE_PRIMARY_MENU:
+                    mPrimaryMenu = child;
+                    break;
+                case LayoutParams.ROLE_SECONDARY_MENU:
+                    mSecondaryMenu = child;
+                    break;
+            }
+        }
+    }
+
     @Override
     protected void onLayout(boolean changed, int l, int t, int r, int b) {
         final int count = getChildCount();
@@ -1006,7 +1028,7 @@ public class SlideMenu extends ViewGroup {
                 : 0;
         for (int index = 0; index < count; index++) {
             View child = getChildAt(index);
-            if (child.getVisibility() != View.VISIBLE) continue;
+            //  if (child.getVisibility() != View.VISIBLE) continue;
             final int measureWidth = child.getMeasuredWidth();
             final int measureHeight = child.getMeasuredHeight();
             LayoutParams layoutParams = (LayoutParams) child.getLayoutParams();
@@ -1247,8 +1269,9 @@ public class SlideMenu extends ViewGroup {
         public final static int ROLE_CONTENT = 0;
         public final static int ROLE_PRIMARY_MENU = 1;
         public final static int ROLE_SECONDARY_MENU = 2;
+        public final static int ROLE_DEFAULT = -1;
 
-        public int role = -1;
+        public int role = ROLE_DEFAULT;
 
         public LayoutParams(Context context, AttributeSet attrs) {
             super(context, attrs);

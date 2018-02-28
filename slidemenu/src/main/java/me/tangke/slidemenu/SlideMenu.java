@@ -27,6 +27,7 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import android.support.v4.view.ViewCompat;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.util.TypedValue;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
@@ -49,6 +50,9 @@ import me.tangke.slidemenu.utils.ScrollDetectors.ScrollDetector;
  * @author Tank
  */
 public class SlideMenu extends ViewGroup {
+
+    private final static String TAG = SlideMenu.class.getSimpleName();
+
     private final static int MAX_DURATION = 500;
     private static int STATUS_BAR_HEIGHT;
 
@@ -302,11 +306,31 @@ public class SlideMenu extends ViewGroup {
                 mSecondaryMenu = child;
                 break;
             default:
-                // We will ignore the view without attribute layout_role
-                return;
+                break;
         }
         invalidateMenuState();
         super.addView(child, index, params);
+    }
+
+
+    @Override
+    public void addView(View child) {
+        super.addView(child);
+    }
+
+    @Override
+    public void addView(View child, int index) {
+        if (child == null) {
+            throw new IllegalArgumentException("Cannot add a null child view to a ViewGroup");
+        }
+        ViewGroup.LayoutParams params = child.getLayoutParams();
+        if (params == null || !(params instanceof LayoutParams)) {
+            params = generateDefaultLayoutParams();
+            if (params == null) {
+                throw new IllegalArgumentException("generateDefaultLayoutParams() cannot return null");
+            }
+        }
+        addView(child, index, params);
     }
 
     /**
@@ -397,7 +421,7 @@ public class SlideMenu extends ViewGroup {
      * @param slideMode
      */
     public void setSlideMode(int slideMode) {
-        if (isAttacthedInContentView()) {
+        if (isAttachedInContentView()) {
             throw new IllegalStateException(
                     "SlidingMenu must be the root of layout");
         }
@@ -881,6 +905,7 @@ public class SlideMenu extends ViewGroup {
             }
             mSlideStateChangeListener.onSlideOffsetChange(slideOffsetPercent);
         }
+        Log.d(TAG, "setCurrentOffset: " + currentOffset);
         invalidateMenuState();
         invalidate();
         requestLayout();
@@ -932,6 +957,10 @@ public class SlideMenu extends ViewGroup {
                                             MeasureSpec.getMode(heightMeasureSpec))
                                     : heightMeasureSpec, 0);
                     break;
+                default:
+                    measureChildWithMargins(child, widthMeasureSpec, 0,
+                            heightMeasureSpec, 0);
+                    break;
             }
 
             maxChildWidth = Math.max(maxChildWidth, child.getMeasuredWidth());
@@ -960,7 +989,7 @@ public class SlideMenu extends ViewGroup {
 
     }
 
-    private boolean isAttacthedInContentView() {
+    private boolean isAttachedInContentView() {
         View parent = (View) getParent();
         return null != parent
                 && (android.R.id.content == parent.getId() && MODE_SLIDE_CONTENT == mSlideMode)
@@ -977,6 +1006,7 @@ public class SlideMenu extends ViewGroup {
                 : 0;
         for (int index = 0; index < count; index++) {
             View child = getChildAt(index);
+            if (child.getVisibility() != View.VISIBLE) continue;
             final int measureWidth = child.getMeasuredWidth();
             final int measureHeight = child.getMeasuredHeight();
             LayoutParams layoutParams = (LayoutParams) child.getLayoutParams();
@@ -991,7 +1021,7 @@ public class SlideMenu extends ViewGroup {
                 case LayoutParams.ROLE_PRIMARY_MENU:
                     mContentBoundsRight = measureWidth;
                     child.layout(paddingLeft, statusBarHeight + paddingTop,
-                            paddingLeft + measureWidth, statusBarHeight
+                            paddingLeft + mCurrentContentOffset, statusBarHeight
                                     + paddingTop + measureHeight);
                     break;
                 case LayoutParams.ROLE_SECONDARY_MENU:
@@ -1001,7 +1031,10 @@ public class SlideMenu extends ViewGroup {
                             statusBarHeight + paddingTop + measureHeight);
                     break;
                 default:
-                    continue;
+                    child.layout(paddingLeft, paddingTop,
+                            paddingLeft + measureWidth,
+                            paddingTop + measureHeight);
+                    break;
             }
         }
     }
@@ -1200,6 +1233,11 @@ public class SlideMenu extends ViewGroup {
         };
     }
 
+    @Override
+    protected LayoutParams generateDefaultLayoutParams() {
+        return new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT);
+    }
+
     /**
      * Add view role for {@link #SlideMenu}
      *
@@ -1210,7 +1248,7 @@ public class SlideMenu extends ViewGroup {
         public final static int ROLE_PRIMARY_MENU = 1;
         public final static int ROLE_SECONDARY_MENU = 2;
 
-        public int role;
+        public int role = -1;
 
         public LayoutParams(Context context, AttributeSet attrs) {
             super(context, attrs);
@@ -1237,8 +1275,7 @@ public class SlideMenu extends ViewGroup {
                     // add your custom layout rule here for menu
                     break;
                 default:
-                    throw new IllegalArgumentException(
-                            "You must specified a layout_role for this view");
+                    break;
             }
             a.recycle();
         }
